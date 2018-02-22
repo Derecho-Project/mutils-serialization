@@ -329,7 +329,7 @@ namespace mutils{
 	 */
 	template<typename T>
 	std::enable_if_t<std::is_base_of<ByteRepresentable CMA T>::value,
-					 std::unique_ptr<T> > from_bytes(DeserializationManager* ctx, char const *v){
+	std::unique_ptr<T> > from_bytes(DeserializationManager* ctx, char const *v){
 		return T::from_bytes(ctx,v);
 	}
 
@@ -339,8 +339,8 @@ namespace mutils{
 	 * custom logic is implemented for some STL types.
 	 */
 	template<typename T>
-	std::enable_if_t<std::is_pod<T>::value
-					 ,std::unique_ptr<std::decay_t<T> > > from_bytes(DeserializationManager*, char const *v);
+	std::enable_if_t<std::is_pod<T>::value,
+	std::unique_ptr<std::decay_t<T> > > from_bytes(DeserializationManager*, char const *v);
 	
 	/**
 	 * Calls T::from_bytes_noalloc(ctx,v) when T is a ByteRepresentable. 
@@ -348,14 +348,14 @@ namespace mutils{
 	 * custom logic is implemented for some STL types.
 	 */
 	template<typename T>
-	std::enable_if_t<std::is_base_of<ByteRepresentable CMA T>::value,
+	std::enable_if_t<std::is_base_of<ByteRepresentable CMA std::decay_t<T>>::value,
 					 context_ptr<T> > from_bytes_noalloc(DeserializationManager* ctx, char *v){
-		return T::from_bytes_noalloc(ctx,v);
+		return std::decay_t<T>::from_bytes_noalloc(ctx,v);
 	}
 	template<typename T>
-	std::enable_if_t<std::is_base_of<ByteRepresentable CMA T>::value,
+	std::enable_if_t<std::is_base_of<ByteRepresentable CMA std::decay_t<T>>::value,
 					 context_ptr<T> > from_bytes_noalloc(DeserializationManager* ctx, char const * const v){
-		return T::from_bytes_noalloc(ctx,v);
+		return std::decay_t<T>::from_bytes_noalloc(ctx,v);
 	}
 
 	/**
@@ -365,12 +365,12 @@ namespace mutils{
 	 */
 
 	template<typename T>
-	std::enable_if_t<std::is_pod<T>::value
-					 ,context_ptr<std::decay_t<T> > > from_bytes_noalloc(DeserializationManager*, char *v);
+	std::enable_if_t<std::is_pod<T>::value, context_ptr<std::decay_t<T> > >
+	from_bytes_noalloc(DeserializationManager*, char *v);
 
 	template<typename T>
-	std::enable_if_t<std::is_pod<T>::value
-									 ,context_ptr<const std::decay_t<T> > > from_bytes_noalloc(DeserializationManager*, char const * const v, context_ptr<T> = context_ptr<T>{});
+	std::enable_if_t<std::is_pod<T>::value, context_ptr<const std::decay_t<T>>>
+	from_bytes_noalloc(DeserializationManager*, char const * const v, context_ptr<T> = context_ptr<T>{});
 
 	/**
 	 * Calls mutils::from_bytes_noalloc<T>(ctx,v), dereferences the result, and passes
@@ -614,8 +614,8 @@ namespace mutils{
 	
 	//from_bytes definitions
 	template<typename T>
-	std::enable_if_t<std::is_pod<T>::value
-					 ,std::unique_ptr<std::decay_t<T> > > from_bytes(DeserializationManager*, char const *v){
+	std::enable_if_t<std::is_pod<T>::value,
+	std::unique_ptr<std::decay_t<T> > > from_bytes(DeserializationManager*, char const *v){
 		using T2 = std::decay_t<T>;
 		if (v) {
 			auto t = std::make_unique<T2>(*(T2*)v);
@@ -626,15 +626,15 @@ namespace mutils{
 	}
 
 	template<typename T>
-	std::enable_if_t<std::is_pod<T>::value
-					 ,context_ptr<std::decay_t<T> > > from_bytes_noalloc(DeserializationManager*, char *v, context_ptr<T> = context_ptr<T>{}){
+	std::enable_if_t<std::is_pod<T>::value,
+	context_ptr<std::decay_t<T> > > from_bytes_noalloc(DeserializationManager*, char *v, context_ptr<T> = context_ptr<T>{}){
 		using T2 = std::decay_t<T>;
 		return context_ptr<T2>{(T2*)v};
 	}
 
 	template<typename T>
-	std::enable_if_t<std::is_pod<T>::value
-					 ,context_ptr<const std::decay_t<T> > > from_bytes_noalloc(DeserializationManager*, char const * const v, context_ptr<T>){
+	std::enable_if_t<std::is_pod<T>::value,
+	context_ptr<const std::decay_t<T> > > from_bytes_noalloc(DeserializationManager*, char const * const v, context_ptr<T>){
 		using T2 = std::decay_t<T>;
 		return context_ptr<const T2>{(const T2*)v};
 	}
@@ -668,11 +668,13 @@ namespace mutils{
 	
 
 	template<typename T>
-	context_ptr<type_check<is_string,T> > from_bytes_noalloc(DeserializationManager*, char const *v, context_ptr<T> = context_ptr<T>{}){
+	context_ptr<type_check<is_string,T> > from_bytes_noalloc(DeserializationManager*, char const *v,
+	                                                         context_ptr<T> = context_ptr<T>{}){
 		assert(v);
 		return context_ptr<T>(new std::string{v});
 	}
 	
+
 	template<typename T>
 	std::unique_ptr<type_check<is_set,T> > from_bytes(DeserializationManager* ctx, const char* _v) {
 		int size = ((int*)_v)[0];
@@ -809,7 +811,8 @@ namespace mutils{
 	std::size_t from_bytes_v(DeserializationManager *, char const * const );
 	
 	template<typename T, typename... Rest>
-	std::size_t from_bytes_v(DeserializationManager *dsm, char const * const buf, std::unique_ptr<T> &first, Rest& ... rest){
+	std::size_t from_bytes_v(DeserializationManager *dsm, char const * const buf,
+	                         std::unique_ptr<T> &first, Rest& ... rest){
 		first = from_bytes<T>(dsm,buf);
 		auto size = bytes_size(*first);
 		return size + from_bytes_v(dsm,buf + size,rest...);
@@ -818,57 +821,58 @@ namespace mutils{
 	std::size_t from_bytes_noalloc_v(DeserializationManager *, char const * const );
 	
 	template<typename T, typename... Rest>
-	std::size_t from_bytes_noalloc_v_nc(DeserializationManager *dsm, char * buf, context_ptr<T> &first, context_ptr<Rest>& ... rest){
+	std::size_t from_bytes_noalloc_v_nc(DeserializationManager *dsm, char * buf,
+	                                    context_ptr<T> &first, context_ptr<Rest>& ... rest){
 		first = from_bytes_noalloc<T>(dsm,buf,context_ptr<T>{});
 		auto size = bytes_size(*first);
 		return size + from_bytes_noalloc_v(dsm,buf + size,rest...);
 	}
 
 	template<typename T, typename... Rest>
-	std::size_t from_bytes_noalloc_v(DeserializationManager *dsm, char * buf, context_ptr<T> &first, context_ptr<Rest>& ... rest){
+	std::size_t from_bytes_noalloc_v(DeserializationManager *dsm, char * buf,
+	                                 context_ptr<T> &first, context_ptr<Rest>& ... rest){
 		return from_bytes_noalloc_v_nc(dsm,buf,first,rest...);
 	}
 
 	template<typename T, typename... Rest>
-	std::size_t from_bytes_noalloc_v(DeserializationManager *dsm, char const * const buf, context_ptr<const T> &first, context_ptr<const Rest>& ... rest){
-		first = from_bytes_noalloc<T>(dsm,buf, context_ptr<T>{});
+	std::size_t from_bytes_noalloc_v(DeserializationManager *dsm, char const * const buf,
+	                                 context_ptr<const T> &first, context_ptr<const Rest>& ... rest){
+		first = from_bytes_noalloc<const T>(dsm,buf, context_ptr<const T>{});
 		auto size = bytes_size(*first);
 		return size + from_bytes_noalloc_v(dsm,buf + size,rest...);
 	}
 	
-	//sample of how this might work.  Nocopy, plus complete memory safety, but
-	//at the cost of callback land.
-	template<typename T, typename F>
-	auto deserialize_and_run(DeserializationManager* dsm, char * v, const F& fun){
-		using fun_t = std::function<std::result_of_t<F(T&)> (T&)>;
-		//ensure implicit conversion can run
-		static_assert(std::is_convertible<F, fun_t>::value,
-					  "Error: type mismatch on function and target deserialialized type");
-		return fun(*from_bytes_noalloc<T>(dsm,v));
-	}
+    //sample of how this might work.  Nocopy, plus complete memory safety, but
+    //at the cost of callback land.
+    template<typename F, typename R, typename... Args>
+    auto deserialize_and_run(DeserializationManager* dsm, char const * const v, const F& fun,
+                             std::function<R (Args...)> const * const){
+        using result_t = std::result_of_t<F(Args...)>;
+        static_assert(std::is_same<result_t,R>::value,"Error: function types mismatch.");
+        using fun_t = std::function<result_t (Args...)>;
+        //ensure implicit conversion can run
+        static_assert(std::is_convertible<F, fun_t>::value,
+                      "Error: type mismatch on function and target deserialialized type");
+        std::tuple<DeserializationManager*, const char *, context_ptr<const std::decay_t<Args> >...> args_tuple;
+        std::get<0>(args_tuple) = dsm;
+        std::get<1>(args_tuple) = v;
+		//Make a pointer to from_bytes_noalloc_v with concrete argument types, to help the compiler
+        using from_bytes_type = std::size_t (*) (DeserializationManager*, const char*, context_ptr<const std::decay_t<Args> >&...);
+        from_bytes_type from_bytes_noalloc_concrete =
+                [](DeserializationManager* d, const char* c, context_ptr<const std::decay_t<Args> >&... args){
+            return from_bytes_noalloc_v(d,c,args...);
+        };
+		//Unmarshall fun's arguments into the context_ptrs
+        /*auto size = */ callFunc(from_bytes_noalloc_concrete,args_tuple);
+        //Call fun, but ignore the first two arguments in args_tuple
+        return callFunc([&fun](const auto&, const auto&, auto&... ctx_ptrs){return fun(*ctx_ptrs...);},args_tuple);
+    }
 
-	//sample of how this might work.  Nocopy, plus complete memory safety, but
-	//at the cost of callback land.
-	template<typename F, typename R, typename... Args>
-	auto deserialize_and_run(DeserializationManager* dsm, char * v, const F& fun, std::function<R (Args&...)> const * const){
-		using result_t = std::result_of_t<F(Args&...)>;
-		static_assert(std::is_same<result_t,R>::value,"Error: function types mismatch.");
-		using fun_t = std::function<result_t (Args&...)>;
-		//ensure implicit conversion can run
-		static_assert(std::is_convertible<F, fun_t>::value,
-					  "Error: type mismatch on function and target deserialialized type");
-		std::tuple<DeserializationManager*, char*, context_ptr<Args>...> args_tuple;
-		std::get<0>(args_tuple) = dsm;
-		std::get<1>(args_tuple) = v;
-		auto size = callFunc<std::size_t,decltype(args_tuple), /*Args: */ DeserializationManager*, char *, context_ptr<Args>&...>
-			(from_bytes_noalloc_v_nc<Args...>,args_tuple);
-		return callFunc([&fun](const auto&, const auto&, auto&... a){return fun(*a...);},args_tuple);
-	}
+    template<typename F>
+    auto deserialize_and_run(DeserializationManager* dsm, char const * const v, const F& fun){
+        using fun_t = std::decay_t<decltype(convert(fun))>;
+        return deserialize_and_run<F>(dsm,v,fun,(fun_t*) nullptr);
+    }
 
-	template<typename F>
-	auto deserialize_and_run(DeserializationManager* dsm, char * v, const F& fun){
-		using fun_t = std::decay_t<decltype(convert(fun))>;
-		return deserialize_and_run<F>(dsm,v,fun,(fun_t*) nullptr);
-	}
 
 }
