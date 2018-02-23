@@ -96,8 +96,8 @@ namespace mutils{
 	 * not necessary. 
 	 */
 	struct RemoteDeserializationContext{
-		DeserializationManager* this_mgr{nullptr};
 		RemoteDeserializationContext(const RemoteDeserializationContext&) = delete;
+		RemoteDeserializationContext(const RemoteDeserializationContext&&) = delete;
 		virtual ~RemoteDeserializationContext(){}
 		RemoteDeserializationContext(){}
 	};
@@ -134,16 +134,13 @@ namespace mutils{
 		 */
 		RemoteDeserialization_v registered_v;
 		DeserializationManager(RemoteDeserialization_v rv):registered_v(rv){
-			for (auto &r : registered_v) r->this_mgr = this;
 		}
 		
 		DeserializationManager(const DeserializationManager&) = delete;
 		
 		DeserializationManager(DeserializationManager&& o)
 			:registered_v(std::move(o.registered_v))
-			{
-				for (auto &r : registered_v) r->this_mgr = this;
-			}
+			{}
 
 		DeserializationManager& register_ctx(RemoteDeserializationContext_p ctx){
 			registered_v.emplace_back(ctx);
