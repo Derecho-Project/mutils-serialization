@@ -349,13 +349,19 @@ namespace mutils{
 	 */
 	template<typename T>
 	std::enable_if_t<std::is_base_of<ByteRepresentable CMA std::decay_t<T>>::value,
-					 context_ptr<T> > from_bytes_noalloc(DeserializationManager* ctx, char *v){
+					 context_ptr<T> > from_bytes_noalloc(DeserializationManager* ctx, char *v,
+                                                         context_ptr<std::decay_t<T>> = context_ptr<std::decay_t<T>>{}){
 		return std::decay_t<T>::from_bytes_noalloc(ctx,v);
 	}
 	template<typename T>
 	std::enable_if_t<std::is_base_of<ByteRepresentable CMA std::decay_t<T>>::value,
-					 context_ptr<T> > from_bytes_noalloc(DeserializationManager* ctx, char const * const v){
-		return std::decay_t<T>::from_bytes_noalloc(ctx,v);
+					 context_ptr<T> > from_bytes_noalloc(DeserializationManager* ctx, char const * const v,
+					                                     context_ptr<const std::decay_t<T>> = context_ptr<const std::decay_t<T>>{}){
+	    //Uncomment the stuff below if we ever get a chance to use a recent g++
+	    //if constexpr (std::is_const<T>::value ){
+	        return std::decay_t<T>::from_bytes_noalloc_const(ctx,v);
+	    //}
+	    //else return std::decay_t<T>::from_bytes_noalloc(ctx,v);
 	}
 
 	/**

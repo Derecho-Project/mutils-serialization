@@ -393,6 +393,16 @@
 #define DEFAULT_DESERIALIZE_IMPL(count, ...) DEFAULT_DESERIALIZE_IMPL2(count, __VA_ARGS__)
 #define DEFAULT_DESERIALIZE(...) DEFAULT_DESERIALIZE_IMPL(VA_NARGS(__VA_ARGS__), __VA_ARGS__)
 
+#define DEFAULT_DESERIALIZE_NOALLOC(Name)\
+    template<typename... SerializationMacroArgs>\
+    static mutils::context_ptr<Name> from_bytes_noalloc(SerializationMacroArgs&& ... args){ \
+        return mutils::context_ptr<Name>(Name::from_bytes(std::forward<SerializationMacroArgs>(args)...).release()); \
+    }\
+    template<typename... SerializationMacroArgs>\
+    static mutils::context_ptr<const Name> from_bytes_noalloc_const(SerializationMacroArgs&& ... args){ \
+        return mutils::context_ptr<const Name>(Name::from_bytes(std::forward<SerializationMacroArgs>(args)...).release()); \
+    }
+
 
 /**
  * THIS (below) is the only user-facing macro in this file.
@@ -410,5 +420,5 @@
  */
 
 #define DEFAULT_SERIALIZATION_SUPPORT(CLASS_NAME,CLASS_MEMBERS...)		\
-        DEFAULT_SERIALIZE(CLASS_MEMBERS) DEFAULT_DESERIALIZE(CLASS_NAME,CLASS_MEMBERS)   \
+        DEFAULT_SERIALIZE(CLASS_MEMBERS) DEFAULT_DESERIALIZE(CLASS_NAME,CLASS_MEMBERS) DEFAULT_DESERIALIZE_NOALLOC(CLASS_NAME)  \
     void ensure_registered(mutils::DeserializationManager&){}
