@@ -847,9 +847,34 @@ namespace mutils{
 	
     //sample of how this might work.  Nocopy, plus complete memory safety, but
     //at the cost of callback land.
+
+	struct dsr_info{
+		std::chrono::nanoseconds to_callfunc;
+		std::chrono::nanoseconds to_exit;
+	};
+
+	inline auto& get_dsr_info(){
+		static thread_local dsr_info ret;
+		return ret;
+	}
+
     template<typename F, typename R, typename... Args>
     auto deserialize_and_run(DeserializationManager* dsm, char const * const v, const F& fun,
                              std::function<R (Args...)> const * const){
+		using namespace std;
+		using namespace chrono;
+		static thread_local auto deserialize_and_run_start = high_resolution_clock::now();
+		static thread_local auto callfunc_time = deserialize_and_run_start;
+		struct on_function_end {
+			~on_function_end(){
+				auto &r = get_dsr_info();
+				r.to_callfunc = callfunc_time - deserialize_and_run_start;
+				r.to_exit = deserialize_and_run_start - high_resolution_clock::now();
+			}
+		};
+		on_function_end ofe;
+		deserialize_and_run_start = high_resolution_clock::now();
+
         using result_t = std::result_of_t<F(Args...)>;
         static_assert(std::is_same<result_t,R>::value,"Error: function types mismatch.");
         using fun_t = std::function<result_t (Args...)>;
@@ -868,6 +893,7 @@ namespace mutils{
 		//Unmarshall fun's arguments into the context_ptrs
         /*auto size = */ callFunc(from_bytes_noalloc_concrete,args_tuple);
         //Call fun, but ignore the first two arguments in args_tuple
+		callfunc_time = high_resolution_clock::now();
         return callFunc([&fun](const auto&, const auto&, auto&... ctx_ptrs){return fun(*ctx_ptrs...);},args_tuple);
     }
 
