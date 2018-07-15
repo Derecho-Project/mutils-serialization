@@ -869,7 +869,7 @@ namespace mutils{
 			~on_function_end(){
 				auto &r = get_dsr_info();
 				r.to_callfunc = callfunc_time - deserialize_and_run_start;
-				r.to_exit = deserialize_and_run_start - high_resolution_clock::now();
+				r.to_exit = high_resolution_clock::now() - deserialize_and_run_start;
 			}
 		};
 		on_function_end ofe;
