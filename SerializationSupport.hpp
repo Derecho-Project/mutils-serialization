@@ -895,8 +895,10 @@ namespace mutils{
 		//Unmarshall fun's arguments into the context_ptrs
         /*auto size = */ callFunc(from_bytes_noalloc_concrete,args_tuple);
         //Call fun, but ignore the first two arguments in args_tuple
-		callfunc_time = high_resolution_clock::now();
-        return callFunc([&fun](const auto&, const auto&, auto&... ctx_ptrs){return fun(*ctx_ptrs...);},args_tuple);
+        return callFunc([&fun](const auto&, const auto&, auto&... ctx_ptrs){
+			callfunc_time = high_resolution_clock::now();
+			return fun(*ctx_ptrs...);
+		},args_tuple);
     }
 
     template<typename F>
