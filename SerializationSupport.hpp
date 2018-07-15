@@ -851,6 +851,7 @@ namespace mutils{
 	struct dsr_info{
 		std::chrono::nanoseconds to_callfunc;
 		std::chrono::nanoseconds to_exit;
+		typename std::chrono::high_resolution_clock::time_point start_time;
 	};
 
 	inline auto& get_dsr_info(){
@@ -868,6 +869,7 @@ namespace mutils{
 		struct on_function_end {
 			~on_function_end(){
 				auto &r = get_dsr_info();
+				r.start_time = deserialize_and_run_start;
 				r.to_callfunc = callfunc_time - deserialize_and_run_start;
 				r.to_exit = high_resolution_clock::now() - deserialize_and_run_start;
 			}
