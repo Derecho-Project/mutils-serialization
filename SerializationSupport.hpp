@@ -876,9 +876,8 @@ namespace mutils{
 			}
 		};
 		on_function_end ofe;
-#endif
 		deserialize_and_run_start = high_resolution_clock::now();
-
+#endif
         using result_t = std::result_of_t<F(Args...)>;
         static_assert(std::is_same<result_t,R>::value,"Error: function types mismatch.");
         using fun_t = std::function<result_t (Args...)>;
