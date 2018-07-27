@@ -853,15 +853,16 @@ namespace mutils{
 		std::chrono::nanoseconds to_exit;
 		typename std::chrono::high_resolution_clock::time_point start_time;
 	};
-
+#ifdef SERIALIZATION_STATS
 	inline auto& get_dsr_info(){
 		static thread_local dsr_info ret;
 		return ret;
 	}
-
+#endif
     template<typename F, typename R, typename... Args>
     auto deserialize_and_run(DeserializationManager* dsm, char const * const v, const F& fun,
                              std::function<R (Args...)> const * const){
+#ifdef SERIALIZATION_STATS
 		using namespace std;
 		using namespace chrono;
 		static thread_local auto deserialize_and_run_start = high_resolution_clock::now();
@@ -875,6 +876,7 @@ namespace mutils{
 			}
 		};
 		on_function_end ofe;
+#endif
 		deserialize_and_run_start = high_resolution_clock::now();
 
         using result_t = std::result_of_t<F(Args...)>;
@@ -896,7 +898,9 @@ namespace mutils{
         /*auto size = */ callFunc(from_bytes_noalloc_concrete,args_tuple);
         //Call fun, but ignore the first two arguments in args_tuple
         return callFunc([&fun](const auto&, const auto&, auto&... ctx_ptrs){
+#ifdef SERIALIZATION_STATS
 			callfunc_time = high_resolution_clock::now();
+#endif
 			return fun(*ctx_ptrs...);
 		},args_tuple);
     }
