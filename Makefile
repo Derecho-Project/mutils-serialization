@@ -1,6 +1,6 @@
 .PHONY : clean
 
-CPPFLAGS=-fPIC -g --std=c++14
+CPPFLAGS=-fPIC -g --std=c++1z
 LDFLAGS=-shared 
 
 SOURCES = SerializationSupport.cpp
