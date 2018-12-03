@@ -293,6 +293,11 @@ template <typename... T> std::size_t bytes_size(const std::tuple<T...> &t) {
   return std::apply(bytes_size_helper<T...>, t);
 }
 
+template<typename T>
+std::size_t bytes_size(const std::unique_ptr<T>& ptr) {
+    return 1 + (ptr ? bytes_size(*ptr) : 0);
+}
+
 /**
  * In-place serialization is also sometimes possible.
  * This will take a function that expects buffers to be posted,
@@ -347,6 +352,8 @@ template <typename T>
 std::enable_if_t<std::is_base_of<ByteRepresentable CMA T>::value,
                  std::unique_ptr<T>>
 from_bytes(DeserializationManager *ctx, char const *v) {
+    static_assert(!std::is_same<std::decay_t<T>, ByteRepresentable>::value,
+                  "Error: must deserialize as implementing type, not as ByteRepresentable");
   return T::from_bytes(ctx, v);
 }
 
@@ -379,10 +386,10 @@ from_bytes_noalloc(
     DeserializationManager *ctx, char const *const v,
     context_ptr<const std::decay_t<T>> = context_ptr<const std::decay_t<T>>{}) {
   // Uncomment the stuff below if we ever get a chance to use a recent g++
-  // if constexpr (std::is_const<T>::value ){
-  return std::decay_t<T>::from_bytes_noalloc_const(ctx, v);
-  //}
-  // else return std::decay_t<T>::from_bytes_noalloc(ctx,v);
+    if constexpr (std::is_const<T>::value ){
+        return std::decay_t<T>::from_bytes_noalloc_const(ctx, v);
+    }
+    else return std::decay_t<T>::from_bytes_noalloc(ctx,v);
 }
 
 /**
@@ -547,11 +554,20 @@ void post_object(const std::function<void(char const *const, std::size_t)> &f,
   }
 }
 
+template <typename T>
+void post_object(const std::function<void(char const *const, std::size_t)> &f,
+                 const std::unique_ptr<T>& ptr){
+    bool has_value(ptr);
+    f((char*)&has_value, sizeof(has_value));
+    if(has_value) {
+        post_object(f, *ptr);
+    }
+}
+
 // end post_object section
 
-// to_bytes definitions -- these must come after bytes_size and post_object
-// definitions To reduce code duplication, these are all implemented in terms of
-// post_object
+// to_bytes definitions -- these must come after bytes_size and post_object definitions.
+// To reduce code duplication, these are all implemented in terms of post_object
 
 /**
  * Special to_bytes for POD types, which just uses memcpy
@@ -602,6 +618,13 @@ std::size_t to_bytes(const std::map<K, V> &m, char *buffer) {
   post_object(post_to_buffer(index, buffer), m);
   return size;
 }
+
+template<typename T>
+std::size_t to_bytes(const std::unique_ptr<T>& ptr, char* buffer) {
+    std::size_t index = 0;
+    post_object(post_to_buffer(index, buffer), ptr);
+    return bytes_size(ptr);
+}
 // end to_bytes section
 
 #ifndef NDEBUG
@@ -630,6 +653,12 @@ template <typename T>
 void ensure_registered(const std::list<T> &v, DeserializationManager &dm) {
   for (auto &e : v)
     ensure_registered(e, dm);
+}
+
+template<typename T>
+void ensure_registered(const std::unique_ptr<T>& ptr, DeserializationManager& dm) {
+    if(ptr)
+        ensure_registered(*ptr, dm);
 }
 // end ensure_registered section
 #endif
@@ -873,6 +902,38 @@ context_ptr<type_check<is_map, T>>
 from_bytes_noalloc(DeserializationManager *ctx, char const *v,
                    context_ptr<T> = context_ptr<T>{}) {
   return context_ptr<T>{from_bytes<T>(ctx, v).release()};
+}
+
+/* Note that from_bytes<unique_ptr<X>> will return a unique_ptr<unique_ptr<X>>,
+ * which is probably not what you want. This is necessary to maintain compatibility
+ * with the std::set and std::map deserializers, which dereference each
+ * from_bytes<value_t> before inserting it. */
+template<typename T>
+std::unique_ptr<type_check<is_unique_ptr, T>> from_bytes(DeserializationManager* ctx, char const* buffer) {
+    using value_t = typename T::element_type;
+    bool is_valid = ((bool *)buffer)[0];
+    const char* buf_ptr = buffer + sizeof(bool);
+    if(is_valid) {
+        return std::make_unique<T>(from_bytes<value_t>(ctx, buf_ptr));
+    } else {
+        return std::make_unique<T>();
+    }
+}
+
+template<typename T>
+context_ptr<type_check<is_unique_ptr, T>>
+from_bytes_noalloc(DeserializationManager* ctx, char const* buffer,
+                   context_ptr<T> = context_ptr<T>{}) {
+    using value_t = typename T::element_type;
+    bool is_valid = ((bool *)buffer)[0];
+    const char* buf_ptr = buffer + sizeof(bool);
+    context_ptr<T> ret{new T()};
+    if(is_valid) {
+        *ret = from_bytes<value_t>(ctx, buf_ptr);
+    } else {
+        *ret = std::make_unique<value_t>();
+    }
+    return ret;
 }
 
 /**
