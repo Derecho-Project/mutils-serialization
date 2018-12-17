@@ -368,7 +368,7 @@ template <typename T>
 std::enable_if_t<std::is_base_of<ByteRepresentable CMA std::decay_t<T>>::value,
                  context_ptr<T>>
 from_bytes_noalloc(
-    DeserializationManager *ctx, char *v,
+    DeserializationManager *ctx, const char *v,
     context_ptr<std::decay_t<T>> = context_ptr<std::decay_t<T>>{}) {
   return std::decay_t<T>::from_bytes_noalloc(ctx, v);
 }
