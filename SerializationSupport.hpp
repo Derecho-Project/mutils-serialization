@@ -6,8 +6,8 @@
 #include "SerializationMacros.hpp"
 #include "context_ptr.hpp"
 #include <cstring>
-#include <vector>
 #include <tuple>
+#include <vector>
 
 // BEGIN DECLARATIONS AND USAGE INFORMATION
 
@@ -375,7 +375,7 @@ template <typename T>
 std::enable_if_t<std::is_base_of<ByteRepresentable CMA std::decay_t<T>>::value,
                  context_ptr<T>>
 from_bytes_noalloc(
-    DeserializationManager *ctx, char *v,
+    DeserializationManager *ctx, const char *v,
     context_ptr<std::decay_t<T>> = context_ptr<std::decay_t<T>>{}) {
   return std::decay_t<T>::from_bytes_noalloc(ctx, v);
 }
@@ -488,21 +488,19 @@ void post_object(const std::function<void(char const *const, std::size_t)> &f,
   post_object(f, pair.second);
 }
 
-
-template <typename...T>
+template <typename... T>
 void post_object_helper(
-  const std::function<void(char const *const, std::size_t)> &f,
-  const T&...t) {
-  (post_object(f,t),...);
+    const std::function<void(char const *const, std::size_t)> &f,
+    const T &... t) {
+  (post_object(f, t), ...);
 }
 
-template <typename...T>
+template <typename... T>
 void post_object(const std::function<void(char const *const, std::size_t)> &f,
                  const std::tuple<T...> &t) {
-  //std::apply(std::bind(post_object_helper<T...>,f,/*variadic template?*/), t);
-  std::apply([f](T...args){
-      post_object_helper(f,args...);
-    }, t);
+  // std::apply(std::bind(post_object_helper<T...>,f,/*variadic template?*/),
+  // t);
+  std::apply([f](T... args) { post_object_helper(f, args...); }, t);
 }
 
 void post_object(const std::function<void(char const *const, std::size_t)> &f,
@@ -737,6 +735,8 @@ template <typename> struct is_list : std::false_type {};
 
 template <typename T> struct is_list<std::list<T>> : std::true_type {};
 
+template <typename T> struct is_list<const std::list<T>> : std::true_type {};
+
 template <typename> struct is_map : std::false_type {};
 
 template <typename K, typename V>
@@ -796,12 +796,19 @@ std::unique_ptr<type_check<is_list, L>> from_bytes(DeserializationManager *ctx,
   const char *buf_ptr = buffer + sizeof(int);
   std::unique_ptr<std::list<elem>> return_list{new L()};
   for (int i = 0; i < size; ++i) {
-    context_ptr<elem> item =
-        from_bytes_noalloc<elem>(ctx, buf_ptr, context_ptr<elem>{});
+    context_ptr<const elem> item =
+        from_bytes_noalloc<const elem>(ctx, buf_ptr, context_ptr<const elem>{});
     buf_ptr += bytes_size(*item);
     return_list->push_back(*item);
   }
   return std::move(return_list);
+}
+
+template <typename L>
+context_ptr<type_check<is_list, L>>
+from_bytes_noalloc(DeserializationManager *ctx, const char *buffer,
+                   context_ptr<L> = context_ptr<L>{}) {
+  return context_ptr<L>{from_bytes<std::decay_t<L>>(ctx, buffer).release()};
 }
 
 template <typename T>
@@ -817,19 +824,21 @@ std::unique_ptr<T> boolvec_from_bytes(DeserializationManager *ctx,
 
 template <typename TupleType, std::size_t N>
 auto from_bytes_helper(DeserializationManager *ctx, char const *v) {
-  using ElementType = typename std::tuple_element<N,TupleType>::type;
-  ElementType e(*from_bytes<ElementType>(ctx,v));
+  using ElementType = typename std::tuple_element<N, TupleType>::type;
+  ElementType e(*from_bytes<ElementType>(ctx, v));
   auto t = std::make_tuple<ElementType>(std::move(e));
-  if constexpr ( (N+1) == std::tuple_size<TupleType>::value) {
+  if constexpr ((N + 1) == std::tuple_size<TupleType>::value) {
     return t;
   } else {
-    return std::tuple_cat(t, from_bytes_helper<TupleType, N+1>(ctx,v + bytes_size(std::get<0>(t))));
+    return std::tuple_cat(t, from_bytes_helper<TupleType, N + 1>(
+                                 ctx, v + bytes_size(std::get<0>(t))));
   }
 }
 
 template <typename T>
-std::unique_ptr<type_check<is_tuple, T>> from_bytes(DeserializationManager *ctx, char const *v) {
-  return std::make_unique<T>(std::move(from_bytes_helper<T,0>(ctx,v)));
+std::unique_ptr<type_check<is_tuple, T>> from_bytes(DeserializationManager *ctx,
+                                                    char const *v) {
+  return std::make_unique<T>(std::move(from_bytes_helper<T, 0>(ctx, v)));
 }
 
 // Note: T is the type of the vector, not the vector's type parameter T
@@ -1008,7 +1017,7 @@ auto deserialize_and_run(DeserializationManager *dsm, char const *const v,
                          const F &fun, std::function<R(Args...)> const *const) {
 #ifdef SERIALIZATION_STATS
   using namespace std;
-  using namespace chrono;
+  / using namespace chrono;
   static thread_local auto deserialize_and_run_start =
       high_resolution_clock::now();
   static thread_local auto callfunc_time = deserialize_and_run_start;
